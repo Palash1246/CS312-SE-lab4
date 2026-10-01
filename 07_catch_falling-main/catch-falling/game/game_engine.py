@@ -40,10 +40,11 @@ class GameEngine:
             self.basket.x -= self.basket.speed
         if keys_pressed[pygame.K_RIGHT]:
             self.basket.x += self.basket.speed
-        # Boundary handling: only clamps against the screen edges, not
-        # accounting for the basket's own width - it can hang half off
-        # either side of the screen.
-        self.basket.x = max(0, min(WIDTH, self.basket.x))
+
+        # CHANGED: Clamp using half the basket width because basket.x
+        # CHANGED: represents the center of the basket.
+        half_basket_width = self.basket.width / 2  # CHANGED
+        self.basket.x = max(half_basket_width, min(WIDTH - half_basket_width, self.basket.x))  # CHANGED
 
     def handle_keydown(self, key):
         if self.game_over and key == pygame.K_r:
@@ -62,10 +63,18 @@ class GameEngine:
             obj.update()
 
         basket_rect = self.basket.get_rect()
-        for obj in self.objects:                  # BUG: mutating this list while iterating over it
-            if is_caught(basket_rect, obj):
-                self.score += 1
-                self.objects.remove(obj)
+
+        # CHANGED: Build a new list instead of removing objects from the
+        # CHANGED: same list being iterated over, so adjacent catches
+        # CHANGED: are both checked and credited.
+        remaining_objects = []  # CHANGED
+        for obj in self.objects:  # CHANGED
+            if is_caught(basket_rect, obj):  # CHANGED
+                self.score += 1  # CHANGED
+            else:  # CHANGED
+                remaining_objects.append(obj)  # CHANGED
+
+        self.objects = remaining_objects  # CHANGED
 
         missed = [o for o in self.objects if o.is_past_bottom(HEIGHT)]
         if missed:
@@ -81,4 +90,8 @@ class GameEngine:
         renderer.draw_text(surface, font, f"Misses: {self.misses}/{MAX_MISSES}", (10, 36))
 
         if self.game_over:
-            renderer.draw_banner(surface, font, f"Game Over! Final score: {self.score}. Press R to restart.")
+            renderer.draw_banner(
+                surface,
+                font,
+                f"Game Over! Final score: {self.score}. Press R to restart.",
+            )
